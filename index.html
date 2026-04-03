@@ -56,6 +56,7 @@
             border-radius: 50%;
             border: 4px solid rgba(255,255,255,0.2);
             object-fit: cover;
+            background: #eee; /* 이미지 없을 때 대비 */
         }
 
         .profile-text h1 { margin: 0; font-size: 1.8rem; }
@@ -67,6 +68,7 @@
         .dashboard-title {
             font-size: 1.2rem;
             margin-bottom: 20px;
+            margin-top: 30px;
             color: var(--primary-color);
             display: flex;
             justify-content: space-between;
@@ -102,39 +104,55 @@
             text-align: right;
             font-size: 0.75rem;
             color: #94a3b8;
-            margin: 15px 0 40px 0;
+            margin: 15px 0 30px 0;
         }
 
-        /* 반야심경 섹션 */
-        .sutra-section {
-            background-color: var(--sutra-bg);
+        /* 게시판 스타일 */
+        .board-container {
+            background: #f8fafc;
+            padding: 20px;
             border-radius: 20px;
-            padding: 40px;
-            border: 1px solid #eee1c5;
-            text-align: center;
+            border: 1px solid #e2e8f0;
         }
 
-        .sutra-header {
-            font-family: "Gungsuh", "궁서", serif;
-            font-size: 1.5rem;
+        .board-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .board-input-group input {
+            flex: 1;
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            outline: none;
+        }
+
+        .board-input-group button {
+            padding: 0 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
             font-weight: bold;
-            color: #5d4037;
-            margin-bottom: 30px;
-            border-bottom: 1px double #d3c4a1;
-            display: inline-block;
-            padding-bottom: 8px;
         }
 
-        .sutra-text {
-            font-family: "Gungsuh", "궁서", serif;
-            font-size: 1.15rem;
-            line-height: 2.2;
-            color: #3e2723;
-            word-break: keep-all;
-            max-width: 650px;
-            margin: 0 auto;
-            letter-spacing: 0.05rem;
+        .post-item {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
+
+        .post-content { font-size: 0.95rem; margin-bottom: 4px; }
+        .post-date { font-size: 0.75rem; color: #94a3b8; }
 
         /* 하단 정보 섹션 */
         .footer-info {
@@ -150,7 +168,6 @@
         @media (max-width: 600px) {
             .profile-header { flex-direction: column; text-align: center; }
             .grid { grid-template-columns: 1fr 1fr; }
-            .sutra-text { font-size: 1rem; }
         }
     </style>
 </head>
@@ -196,8 +213,21 @@
             <div class="status" id="update-time">데이터 로딩 중...</div>
 
             <div class="dashboard-title">
-                <span>🙏 揭諦揭諦 波羅揭諦 波羅僧揭諦 菩提 娑婆訶</span>
+                <span>💬 한 줄 방명록</span>
             </div>
+            <div class="board-container">
+                <div class="board-input-group">
+                    <input type="text" id="board-input" placeholder="따뜻한 한마디를 남겨주세요." onkeypress="if(event.keyCode==13) addPost()">
+                    <button onclick="addPost()">등록</button>
+                </div>
+                <div id="board-list">
+                    </div>
+            </div>
+
+            <div class="dashboard-title" style="justify-content: center; margin-top: 50px; opacity: 0.7;">
+                <span style="font-size: 0.9rem; font-weight: normal; letter-spacing: 1px;">揭諦揭諦 波羅揭諦 波羅僧揭諦 菩提 娑婆訶</span>
+            </div>
+            
             <div class="footer-info">
                 <span>한국외국어대학교 정보전략팀</span>
                 <span>© 2026 安祥</span>
@@ -207,6 +237,7 @@
 </div>
 
 <script>
+    // 1. 실시간 데이터 가져오기 기능
     async function fetchData() {
         const timeEl = document.getElementById('update-time');
         timeEl.innerText = "갱신 중...";
@@ -228,10 +259,58 @@
         }
     }
 
+    // 2. 게시판 기능 (로컬 스토리지 활용)
+    function loadPosts() {
+        const boardList = document.getElementById('board-list');
+        const posts = JSON.parse(localStorage.getItem('hufs-board') || '[]');
+        
+        if (posts.length === 0) {
+            boardList.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.9rem;">첫 번째 글을 남겨주세요.</div>';
+            return;
+        }
+
+        boardList.innerHTML = posts.map((post, index) => `
+            <div class="post-item">
+                <div>
+                    <div class="post-content">${post.content}</div>
+                    <div class="post-date">${post.date}</div>
+                </div>
+                <button onclick="deletePost(${index})" style="border:none; background:none; color:#cbd5e1; cursor:pointer; font-size:0.8rem;">삭제</button>
+            </div>
+        `).reverse().join('');
+    }
+
+    function addPost() {
+        const input = document.getElementById('board-input');
+        const content = input.value.trim();
+        
+        if (!content) return;
+
+        const posts = JSON.parse(localStorage.getItem('hufs-board') || '[]');
+        const newPost = {
+            content: content,
+            date: new Date().toLocaleString()
+        };
+
+        posts.push(newPost);
+        localStorage.setItem('hufs-board', JSON.stringify(posts));
+        input.value = '';
+        loadPosts();
+    }
+
+    function deletePost(index) {
+        const posts = JSON.parse(localStorage.getItem('hufs-board') || '[]');
+        // 저장된 배열이 reverse로 출력되므로 인덱스 계산 주의 (단순 삭제 후 다시 로드)
+        posts.splice(index, 1);
+        localStorage.setItem('hufs-board', JSON.stringify(posts));
+        loadPosts();
+    }
+
+    // 초기 실행
     fetchData();
-    setInterval(fetchData, 60000);
+    loadPosts();
+    setInterval(fetchData, 60000); // 1분마다 갱물
 </script>
 
 </body>
 </html>
-
